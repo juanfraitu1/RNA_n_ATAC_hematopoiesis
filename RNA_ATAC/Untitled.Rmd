@@ -1,0 +1,10 @@
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.12")
+
+
+gene_count_matrix_Copy <- gene_count_matrix_Copy[rowSums(gene_count_matrix_Copy[,(2:9)]) > 0, ]
+
+samplemetadata=data.frame(sample=sample,replicate=rep(c(1,2,3),2))
+
+names(gene_count_subset)=c("gene_id",rep("SEEM2P",3), rep("SEEM2N",3))
