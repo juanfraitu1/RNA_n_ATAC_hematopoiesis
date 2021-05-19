@@ -233,42 +233,50 @@ summary(upBP)[1:10,]
 
 
 downBP=hyperGTest(DownParams)
-summary(DownBP)[1:10,]
+summary(downBP)[1:10,]
 
 ```
 
 
 
 ```{r}
+UpParams=new("GOHyperGParams", geneIds=selectGenesUp, universeGeneIds=universeGenes, annotation=org.Mm.eg.db, ontology="CC", pvalueCutoff=cutOff, conditional=FALSE, testDirection="over")
+
+
+DownParams=new("GOHyperGParams", geneIds=selectGenesDown, universeGeneIds=universeGenes, annotation=org.Mm.eg.db, ontology="CC", pvalueCutoff=cutOff, conditional=FALSE, testDirection="over")
 
 ```
 
 
 
 ```{r}
+upCC=hyperGTest(UpParams)
+summary(upCC)[1:10,]
 
+
+downCC=hyperGTest(DownParams)
+summary(downCC)[1:10,]
 ```
 
 
 
 ```{r}
+UpParams=new("GOHyperGParams", geneIds=selectGenesUp, universeGeneIds=universeGenes, annotation=org.Mm.eg.db, ontology="MF", pvalueCutoff=cutOff, conditional=FALSE, testDirection="over")
 
+
+DownParams=new("GOHyperGParams", geneIds=selectGenesDown, universeGeneIds=universeGenes, annotation=org.Mm.eg.db, ontology="MF", pvalueCutoff=cutOff, conditional=FALSE, testDirection="over")
 ```
 
 
 
 ```{r}
+upMF=hyperGTest(UpParams)
+summary(upMF)[1:10,]
 
+
+downMF=hyperGTest(DownParams)
+summary(downMF)[1:10,]
 ```
-
-
-
-
-
-
-
-
-
 
 ```{r, messages=FALSE}
 library(pathview)
@@ -314,8 +322,43 @@ View(keggres$greater)
 
 
 ```{r}
+View(keggres$less)
+```
+
+
+```{r}
+keggrespathways=data.frame(id = rownames(keggres$greater), keggres$greater) %>%
+  tibble::as_tibble() %>%
+  filter(row_number() <= 20) %>%
+  .$id %>%
+  as.character()
+keggrespathways
 
 ```
+
+
+
+```{r}
+keggres_ids= substr(keggrespathways, start=1, stop=8)
+```
+
+
+```{r}
+tmp=sapply(keggres_ids, function(pid) pathview(gene.data= foldChanges, pathway.id = pid, species="mmu"))
+```
+
+```{r}
+d=plotCounts(dds,gene="Gm49450", intgroup = "treatment")
+```
+
+
+
+```{r}
+
+```
+
+
+
 
 
 ```{r}
@@ -329,18 +372,25 @@ View(keggres$greater)
 ```
 
 
-```{r}
-```
-
-```{r}
-
-```
 
 
 
 ```{r}
 
 ```
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
 
 
 ```{r}
