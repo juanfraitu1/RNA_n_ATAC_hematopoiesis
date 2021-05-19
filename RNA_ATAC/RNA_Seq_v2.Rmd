@@ -8,6 +8,27 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(limma)
+library(dplyr)
+library(DT)
+library(GenomicRanges)
+library(tidyr)
+library(pheatmap)
+library(DESeq2)
+library(BSgenome.Mmusculus.UCSC.mm10)
+library(tracktables)
+library(Rsubread)
+library(clusterProfiler)
+library(enrichplot)
+library(ChIPseeker)
+library(org.Mm.eg.db)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(gplots)
+library(ggplot2)
+```
+
+
+```{r}
 countData=read.csv('gene_count_matrix.csv', header=TRUE,as.is = TRUE)
 head(countData)
 ```
@@ -51,7 +72,7 @@ colData=as.data.frame(cbind(colnames(countData), inh, treatment))
 
 ```{r}
 dds=DESeqDataSetFromMatrix(countData = countData, colData =  colData, design= ~treatment)
-DESeq(dds)
+dds=DESeq(dds)
 
 ```
 
@@ -65,3 +86,261 @@ library(ggplot2)
 rld=rlog(dds)
 plotPCA(rld, intgroup= "treatment")
 ```
+
+#courtesy of https://github.com/ACSoupir/Bioinformatics_YouTube/blob/master/Visualizing%20Counts/README.md
+```{r}
+detectGroups <- function (x){  # x are col names
+  tem <- gsub("[0-9]*$","",x) # Remove all numbers from end
+  #tem = gsub("_Rep|_rep|_REP","",tem)
+  tem <- gsub("_$","",tem); # remove "_" from end
+  tem <- gsub("_Rep$","",tem); # remove "_Rep" from end
+  tem <- gsub("_rep$","",tem); # remove "_rep" from end
+  tem <- gsub("_REP$","",tem)  # remove "_REP" from end
+  return( tem )
+}
+```
+
+```{r}
+detectGroups(colnames(countData))
+dist2 <- function(x, ...)   # distance function = 1-PCC (Pearson's correlation coefficient)
+  as.dist(1-cor(t(x), method="pearson"))
+```
+
+```{r, fig.height=8,fig.width=12}
+library(gplots)
+
+hclust2 <- function(x, method="average", ...)  # average linkage in hierarchical clustering
+  hclust(x, method=method, ...)
+
+n=10000 # number of top genes by standard deviation
+
+x = assay(rld)
+if(n>dim(x)[1]) n = dim(x)[1] # max	as data
+
+x = x[order(apply(x,1,sd),decreasing=TRUE),]  # sort genes by standard deviation
+
+x = x[1:n,]   # only keep the n genes
+
+# this will cutoff very large values, which could skew the color 
+x=as.matrix(x[1:n,])-apply(x[1:n,],1,mean)
+cutoff = median(unlist(x)) + 4*sd (unlist(x)) 
+x[x>cutoff] <- cutoff
+cutoff = median(unlist(x)) - 4*sd (unlist(x)) 
+x[x< cutoff] <- cutoff
+	
+groups = detectGroups(colnames(x) )
+groups.colors = rainbow(length(unique(groups) ) )
+
+
+	lmat = rbind(c(5,4),c(0,1),c(3,2))
+	lwid = c(1.5,4)
+	lhei = c(1,.2,4)
+
+
+heatmap.2(x, distfun = dist2,hclustfun=hclust2,
+	 col=greenred(75), density.info="none", trace="none", scale="none", keysize=.5
+	,key=T, symkey=F
+	,ColSideColors=groups.colors[ as.factor(groups)]
+	,cexRow=1
+	,srtCol=45
+	,cexCol=1.  # size of font for sample names
+	,lmat = lmat, lwid = lwid, lhei = lhei
+	)
+```
+
+```{r}
+resultsNames(dds)
+res=results(dds)
+summary(res)
+res=results(dds,lfcThreshold = 0.01)
+```
+
+```{r}
+DESeq2::plotMA(res,ylim=c(-5,5))
+```
+
+```{r}
+library(dplyr)
+res1=as.data.frame(res)
+View(res1)
+res1=mutate(res1,sig=ifelse(res1$padj<0.1, "FDR<0.1","Not Significant"))
+res1[which(abs(res1$log2FoldChange)<1.0),"Significant"] = "Not Significant"
+```
+
+```{r}
+library(ggplot2)
+ggplot(res1, aes(log2FoldChange, -log10(padj))) + geom_point(aes(col=sig)) + scale_color_manual(values=c("red","black"))
+
+```
+
+```{r}
+res=res[order(abs(res$log2FoldChange), decreasing=TRUE),]
+topGene=rownames(res)[1]
+plotCounts(dds, gene=topGene, intgroup = "treatment")
+```
+
+```{r}
+library(AnnotationDbi)
+library(org.Mm.eg.db)
+```
+
+```{r}
+res$SYMBOL=gsub("\\..*","", row.names(res))
+res$ENTREZID= mapIds(org.Mm.eg.db, key=res$SYMBOL, column="ENTREZID", keytype = "SYMBOL", multiVals = "first")
+```
+
+```{r}
+#write.csv(res, file='treatments-0.1_lfc-1_results.csv')
+```
+
+## GO!
+```{r}
+library(GO.db)
+library(GOstats)
+
+res_05=as.data.frame(subset(res, padj<0.05))
+sig_lfc= 4
+```
+
+
+
+```{r}
+selectGenesUp= unique(res_05[res_05$log2FoldChange>sig_lfc, "ENTREZID"])
+selectGenesDown= unique(res_05[res_05$log2FoldChange>-(sig_lfc), "ENTREZID"])
+
+```
+
+
+```{r}
+universeGenes= unique(res_05$ENTREZID)
+cutOff= 0.01
+
+```
+
+```{r}
+UpParams=new("GOHyperGParams", geneIds=selectGenesUp, universeGeneIds=universeGenes, annotation=org.Mm.eg.db, ontology="BP", pvalueCutoff=cutOff, conditional=FALSE, testDirection="over")
+
+
+DownParams=new("GOHyperGParams", geneIds=selectGenesDown, universeGeneIds=universeGenes, annotation=org.Mm.eg.db, ontology="BP", pvalueCutoff=cutOff, conditional=FALSE, testDirection="over")
+
+```
+
+
+```{r}
+
+upBP=hyperGTest(UpParams)
+summary(upBP)[1:10,]
+
+
+downBP=hyperGTest(DownParams)
+summary(DownBP)[1:10,]
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r, messages=FALSE}
+library(pathview)
+library(gage)
+library(gageData)
+```
+
+```{r}
+foldChanges= res$log2FoldChange
+names(foldChanges)=res$ENTREZID
+
+```
+
+```{r}
+data("go.sets.mm")
+data("go.subs.mm")
+```
+
+```{r}
+gobpsets= go.sets.mm[go.subs.mm$BP]
+gobpres=gage(foldChanges, gsets= gobpsets, same.dir=TRUE)
+View(gobpres$greater)
+```
+
+
+```{r}
+data("kegg.sets.mm")
+data("sigmet.idx.mm")
+kegg.sets.mm =kegg.sets.mm[sigmet.idx.mm]
+```
+
+
+
+```{r}
+keggres= gage(exprs =  foldChanges, gsets= kegg.sets.mm, same.dir = TRUE)
+```
+
+
+
+```{r}
+View(keggres$greater)
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
