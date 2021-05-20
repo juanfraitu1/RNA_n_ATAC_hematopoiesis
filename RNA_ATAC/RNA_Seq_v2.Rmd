@@ -7,7 +7,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, messages=FALSE}
 library(limma)
 library(dplyr)
 library(DT)
@@ -29,21 +29,22 @@ library(ggplot2)
 
 
 ```{r}
-countData=read.csv('gene_count_matrix.csv', header=TRUE,as.is = TRUE)
+setwd("~/Documents/GitHub/RNA_n_ATAC_hematopoiesis")
+countData=read.csv('complete.csv', header=TRUE,as.is = TRUE, row.names = 1)
 head(countData)
 ```
 
 ```{r}
-countData$gene_id=unlist(lapply(strsplit(countData$gene_id, '|', fixed = TRUE), '[', 2))
+#countData$gene_id=unlist(lapply(strsplit(countData$gene_id, '|', fixed = TRUE), '[', 2))
  
-countData=na.omit(countData)
+#countData=na.omit(countData)
 
-rownames(countData) = make.names(countData[,1],unique=TRUE)
-countData=countData[,-1]
+#rownames(countData) = make.names(countData[,1],unique=TRUE)
+#countData=countData[,-1]
 ```
 
 ```{r}
-columns=c("SEDM_2P_1","SEDM_2P_2","SEDM_2P_3","SEEM_2P_1","SEEM_2P_2","SEEM_2P_3","SEEM_4P_1","SEEM_4P_2","SEEM_4P_3","PERKi_1","PERKi_2","PERKi_3","T_1","T_2","T_3")
+columns=c("SEDM_2P_1","SEDM_2P_2","SEDM_2P_3","SEEM_2P_1","SEEM_2P_2","SEEM_2P_3","SEEM_4P_1","SEEM_4P_2","SEEM_4P_3","PERKi_2N_1","PERKi_2N_2","PERKi_2N_3","T_1","T_2","T_3","PERKi_2P_1","PERKi_2P_2","PERKi_2P_3")
 ```
 
 
@@ -62,16 +63,16 @@ hist(logCountData$SEDM_2P_1,br=100)
 ```
 
 ```{r}
-plot(logCountData[,1],logCountData[,2])
+plot(logCountData[,16],logCountData[,17])
 ```
 ```{r}
-treatment=c("F0","F0","F0","F1","F1","F1","F2","F2","F2","F3","F3","F3","F4","F4","F4")
-inh=c(rep("U",9),"I", "I","I",rep("U",3))
+treatment=as.factor(c(1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6))
+inh=c(1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,2,2,2)
 colData=as.data.frame(cbind(colnames(countData), inh, treatment))
 ```
 
 ```{r}
-dds=DESeqDataSetFromMatrix(countData = countData, colData =  colData, design= ~treatment)
+dds=DESeqDataSetFromMatrix(countData = countData, colData = colData, design=~inh)
 dds=DESeq(dds)
 
 ```

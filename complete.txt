@@ -1,0 +1,2 @@
+"Row.names"|"SEDM_2P_1"|"SEDM_2P_2"|"SEDM_2P_3"|"SEEM_2P_1"|"SEEM_2P_2"|"SEEM_2P_3"|"SEEM_4P_1"|"SEEM_4P_2"|"SEEM_4P_3"|"PERKi_1"|"PERKi_2"|"PERKi_3"|"T_1"|"T_2"|"T_3"|"P1_dP_redoA_1"|"P2_dP_redoA_1"|"P3_dP_redoA_1"
+"1"|"a"|1|1|1|1|7|2|1|3|4|8|1|6|1|1|1|
