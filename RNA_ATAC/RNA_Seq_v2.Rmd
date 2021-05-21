@@ -1,6 +1,9 @@
 ---
 title: "RNA_seq"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -85,7 +88,7 @@ nrow(dds)
 ```{r}
 library(ggplot2)
 rld=rlog(dds)
-plotPCA(rld, intgroup= "treatment")
+plotPCA(rld, intgroup= c("inh","treatment"))
 ```
 
 #courtesy of https://github.com/ACSoupir/Bioinformatics_YouTube/blob/master/Visualizing%20Counts/README.md
@@ -163,7 +166,7 @@ DESeq2::plotMA(res,ylim=c(-5,5))
 ```{r}
 library(dplyr)
 res1=as.data.frame(res)
-View(res1)
+head(res1)
 res1=mutate(res1,sig=ifelse(res1$padj<0.1, "FDR<0.1","Not Significant"))
 res1[which(abs(res1$log2FoldChange)<1.0),"Significant"] = "Not Significant"
 ```
@@ -171,13 +174,12 @@ res1[which(abs(res1$log2FoldChange)<1.0),"Significant"] = "Not Significant"
 ```{r}
 library(ggplot2)
 ggplot(res1, aes(log2FoldChange, -log10(padj))) + geom_point(aes(col=sig)) + scale_color_manual(values=c("red","black"))
-
 ```
 
 ```{r}
 res=res[order(abs(res$log2FoldChange), decreasing=TRUE),]
 topGene=rownames(res)[1]
-plotCounts(dds, gene=topGene, intgroup = "treatment")
+plotCounts(dds, gene=topGene, intgroup = c("inh"))
 ```
 
 ```{r}
@@ -299,7 +301,7 @@ data("go.subs.mm")
 ```{r}
 gobpsets= go.sets.mm[go.subs.mm$BP]
 gobpres=gage(foldChanges, gsets= gobpsets, same.dir=TRUE)
-View(gobpres$greater)
+head(gobpres$greater)
 ```
 
 
@@ -318,12 +320,12 @@ keggres= gage(exprs =  foldChanges, gsets= kegg.sets.mm, same.dir = TRUE)
 
 
 ```{r}
-View(keggres$greater)
+head(keggres$greater)
 ```
 
 
 ```{r}
-View(keggres$less)
+head(keggres$less)
 ```
 
 
@@ -334,7 +336,6 @@ keggrespathways=data.frame(id = rownames(keggres$greater), keggres$greater) %>%
   .$id %>%
   as.character()
 keggrespathways
-
 ```
 
 
@@ -346,52 +347,5 @@ keggres_ids= substr(keggrespathways, start=1, stop=8)
 
 ```{r}
 tmp=sapply(keggres_ids, function(pid) pathview(gene.data= foldChanges, pathway.id = pid, species="mmu"))
+head(tmp)
 ```
-
-```{r}
-d=plotCounts(dds,gene="Gm49450", intgroup = "treatment")
-```
-
-
-
-```{r}
-
-```
-
-
-
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-
-
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-
-
-
-
-
-
-
-
-```{r}
