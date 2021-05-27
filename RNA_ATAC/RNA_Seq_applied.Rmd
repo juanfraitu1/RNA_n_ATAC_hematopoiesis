@@ -1,0 +1,115 @@
+---
+title: "RNA-Seq process"
+output: html_notebook
+---
+library(DESeq2)
+library(topGO)
+library(ggplot2)
+library(pheatmap)
+
+setwd("C:/Users/jfris/Downloads/GitHub/RNA_n_ATAC_hematopoiesis/RNA_ATAC")
+
+gene_matrix=read.csv('gene_count_matrix.csv')
+
+gene_matrix <- gene_matrix[rowSums(gene_matrix[,(2:19)]) > 5, ]
+
+AC34_AC56=cbind(gene_matrix[,1], gene_matrix[,5:7],gene_matrix[,8:10])
+
+names(AC34_AC56) = c("gene_id", rep(c("SEDM2P"), 3), rep(c("SEEM2N"),3))
+
+sampleNames <- data.frame(treatment=c(rep("SEDM2P",3), rep("SEEM2N",3)),replicate=rep(c(1,2,3),2))
+
+dds=DESeqDataSetFromMatrix(AC34_AC56, colData = sampleNames, design = ~ treatment, tidy = T)
+
+dds=DESeq(dds)
+
+  
+results1=results(dds)
+
+results_na_o=na.omit(results1)
+
+sigres =results_na_o[which(results_na_o$padj<0.001),]
+
+sigres = sigres[order(-sigres$padj),]
+  
+significant_genes =  row.names(sigres)
+
+significant_genes_names=unlist(lapply(strsplit(significant_genes, '|', fixed = TRUE), '[', 2))
+
+sign=cbind(significant_genes_names, sigres$padj)
+
+sign=sign[!(rowSums(is.na(sign))),]
+
+nam=sign[,1]
+
+sign=sign[,-1]
+
+sign=as.numeric(sign)
+
+names(sign)=nam
+
+extracted=AC34_AC56[AC34_AC56$gene_id %in% significant_genes,]
+
+
+  # Create topGOData object
+  GOdata <- new("topGOdata",
+  	ontology = "BP",
+  	allGenes = sign,
+  	geneSelectionFun = function(x)x,
+  	annot = annFUN.org , mapping = "org.Mm.eg.db", ID="SYMBOL")
+  
+results.ks <- runTest(GOdata, algorithm = "classic", statistic = "ks")
+goEnrichment <- GenTable(
+  GOdata,
+  KS = results.ks,
+  orderBy = "KS",
+  topNodes = 100,
+  numChar = 99)
+goEnrichment$KS <- as.numeric(goEnrichment$KS)
+goEnrichment <- goEnrichment[goEnrichment$KS < 0.05,] # filter terms for KS p<0.05
+goEnrichment <- goEnrichment[,c("GO.ID","Term","KS")]
+goEnrichment
+
+
+
+ntop <- 30
+ggdata <- goEnrichment[1:ntop,]
+ggdata$Term <- factor(ggdata$Term, levels = rev(ggdata$Term)) # fixes order
+gg1 <- ggplot(ggdata,aes(x = Term, y = -log10(KS), size = -log10(KS), fill = -log10(KS))) + expand_limits(y = 1) +
+  geom_point(shape = 21) +
+  scale_size(range = c(2.5,12.5)) +
+  scale_fill_continuous(low = 'royalblue', high = 'red4') +
+
+  xlab('') + ylab('Enrichment score') +
+  labs(
+    title = 'GO Biological processes',
+    subtitle = 'Top 30 terms ordered by Kolmogorov-Smirnov p-value',
+    caption = 'Cut-off lines drawn at equivalents of p=0.05, p=0.01, p=0.001') +
+
+  geom_hline(yintercept = c(-log10(0.05), -log10(0.01), -log10(0.001)),
+    linetype = c("dotted", "longdash", "solid"),
+    colour = c("black", "black", "black"),
+    size = c(0.5, 1.5, 3)) +
+
+  theme_bw(base_size = 24) +
+  theme(
+    legend.position = 'right',
+    legend.background = element_rect(),
+    plot.title = element_text(angle = 0, size = 16, face = 'bold', vjust = 1),
+    plot.subtitle = element_text(angle = 0, size = 14, face = 'bold', vjust = 1),
+    plot.caption = element_text(angle = 0, size = 12, face = 'bold', vjust = 1),
+
+    axis.text.x = element_text(angle = 0, size = 12, face = 'bold', hjust = 1.10),
+    axis.text.y = element_text(angle = 0, size = 12, face = 'bold', vjust = 0.5),
+    axis.title = element_text(size = 12, face = 'bold'),
+    axis.title.x = element_text(size = 12, face = 'bold'),
+    axis.title.y = element_text(size = 12, face = 'bold'),
+    axis.line = element_line(colour = 'black'),
+
+    #Legend
+    legend.key = element_blank(), # removes the border
+    legend.key.size = unit(1, "cm"), # Sets overall area/size of the legend
+    legend.text = element_text(size = 14, face = "bold"), # Text size
+    title = element_text(size = 14, face = "bold")) + coord_flip()
+    
+gg1

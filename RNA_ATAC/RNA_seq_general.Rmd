@@ -1,0 +1,127 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(limma)
+library(dplyr)
+library(DT)
+library(GenomicRanges)
+library(tidyr)
+library(pheatmap)
+library(DESeq2)
+library(BSgenome.Mmusculus.UCSC.mm10)
+library(tracktables)
+library(Rsubread)
+library(clusterProfiler)
+library(enrichplot)
+library(ChIPseeker)
+library(org.Mm.eg.db)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+
+
+
+filePath <- "~/GitHub/hemopoiesis-differentiation/data/"
+sampleNames <- c("ENCFF247FEJ", "ENCFF064MKY", "ENCFF623OLU", "ENCFF691MHW", "ENCFF667IDY", "ENCFF655LMK","ENCFF342WUL","ENCFF858JHF")
+countData.list <- sapply(sampleNames, function(x) read.csv(file=paste0(filePath, x, ".tsv"), header=T, sep="\t"), simplify=F)
+
+
+
+countData.df <- do.call("cbind", countData.list)
+colsToKeep <- c(1,grep("expected_count", names(countData.df)))
+counts <- countData.df[,colsToKeep]
+countss <- counts[rowSums(counts[,(2:9)]) > 0, ]
+names(countss) <- c("gene_id",sampleNames)
+countss[,2:9] <- round(countss[,2:9])
+countss=na.omit(countss)
+
+
+sampleMetaData <- data.frame(cell_line=c(rep(c("HSC"), 2), rep(c("CMP"),2), rep(c("CFU-E"),2), rep(c("ERY"),2)), Sample=sampleNames)
+
+sampleMetaData <- data.frame(cell_line=c(rep(c("HSC"), 2), rep(c("CFU-E"),2)), Type=rep(c(rep(c("Ctrl"), 2), rep(c("CASE_1"), 2))))
+
+
+rsem.in=DESeqDataSetFromMatrix(countss, colData = sampleMetaData, design = ~ cell_line, tidy = T)
+rsem.de <- DESeq(rsem.in)
+
+
+results1=results(rsem.de)
+
+results_na_o=na.omit(results1)
+
+
+
+
+
+
+
+metaData <- data.frame(row.names = colnames(rsem.de))
+
+seq_Rlog <- rlog(rsem.de)
+plotPCA(seq_Rlog, intgroup = as.vector(colnames(rsem.de)), ntop = nrow(seq_Rlog))
+
+
+
+colnames(countss)= c("gene_id","HSC_1","HSC_2","CMP_1","CMP_2","CFU-E_1","CFU-E_2","ERY_1","ERY_2")
+
+
+library(pheatmap)
+
+pheatmap(countss[1:1000,2:9],scale = 'row', show_rownames = FALSE)
+
+
+
+library(stats)
+correlationMatrix <- cor(countss[2:10000,2:9])
+
+
+library(corrplot)
+corrplot(correlationMatrix, order = 'hclust',  addrect = 2, addCoef.col = 'white', number.cex = 0.7) 
+
+
+coldata=as.factor(sampleMetaData[1:2])
+
+library(pheatmap)
+# split the clusters into two based on the clustering similarity 
+pheatmap(correlationMatrix,cutree_cols = 2)
+
+correlationMatrix
